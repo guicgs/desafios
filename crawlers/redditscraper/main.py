@@ -7,7 +7,7 @@ from scrapy.crawler import CrawlerProcess
 from redditscraper.spiders.reddit_top_threads_scraper import RedditTopThreadsScraper
 
 
-def run_spider(subreddits: str) -> None:
+def run_spider(subreddits: str):
     process = CrawlerProcess({
         "FEEDS": {
             "results/items.json": {"format": "json", "overwrite": True},
@@ -15,17 +15,7 @@ def run_spider(subreddits: str) -> None:
     })
 
     process.crawl(RedditTopThreadsScraper, subreddits=subreddits)
-    process.start()
-
-
-def print_scraping_results() -> None:
-    results_json_path = "./results/items.json"
-    if os.path.isfile(results_json_path) and os.path.getsize(results_json_path) > 0:
-        with open(results_json_path) as file:
-            data = json.load(file)
-            for item in data:
-                pretty_json = json.dumps(item, indent=4)
-                print(pretty_json)
+    return process.start()
 
 
 if __name__ == "__main__":
@@ -37,4 +27,10 @@ if __name__ == "__main__":
         da seguinte forma: `docker-compose run --subreddit="cats;sports"`
         """)
     run_spider(subreddits)
-    print_scraping_results()
+    results_json_path = "./results/items.json"
+    if os.path.isfile(results_json_path) and os.path.getsize(results_json_path) > 0:
+        with open(results_json_path) as file:
+            data = json.load(file)
+            for item in data:
+                pretty_json = json.dumps(item, indent=4)
+                print(pretty_json)

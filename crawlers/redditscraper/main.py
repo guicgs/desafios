@@ -1,40 +1,54 @@
-import sys
-import json
-import os
+from decouple import config
+from scrapy.utils.log import configure_logging
+from telegram import Update, ParseMode
+from telegram.ext import Updater, CommandHandler, CallbackContext
 
-from scrapy.crawler import CrawlerProcess
+import scraper_runner
 
-from redditscraper.spiders.reddit_top_threads_scraper import RedditTopThreadsScraper
+TELEGRAM_BOT_TOKEN = config("TELEGRAM_BOT_TOKEN")
+
+configure_logging()
+
+def send_reddit_top_threads(update: Update, context: CallbackContext) -> None:
+    try:
+        subreddits = context.args[0]
+    except IndexError:
+        raise IndexError("Escreva pelo menos um subreddit.")
+    scraper_runner.run_scraper(subreddits)
+    results = scraper_runner.load_scraping_results()
+    message_text = "TOP REDDITS\n"
+    for result in results:
+        subreddit = result["subreddit_title"]
+        message_text += "\n".join([
+            "====================",
+            f"<b>{subreddit.capitalize()}</b>\n",
+        ])
+        items = result["items"]
+        if not items:
+            message_text += "Não foi encontrado nenhum reddit com +5k de pontuação :(\n"
+        else:
+            for item in items:
+                message_text += "\n".join([
+                    "- Título",
+                    f"<pre>{item['title']}</pre>",
+                    "- Pontuação",
+                    f"<pre>{item['score']}</pre>",
+                    "- Link da fonte",
+                    f"{item['source_url']}",
+                    "- Link para os comentários",
+                    f"{item['comments_url']}\n\n",
+                ])
+    update.message.reply_text(text=message_text, parse_mode=ParseMode.HTML)
 
 
-def run_spider(subreddits: str) -> None:
-    process = CrawlerProcess({
-        "FEEDS": {
-            "results/items.json": {"format": "json", "overwrite": True},
-        },
-    })
+def main():
+    updater = Updater(TELEGRAM_BOT_TOKEN)
+    dp = updater.dispatcher
+    dp.add_handler(CommandHandler('top', send_reddit_top_threads))
+    updater.start_polling()
+    updater.idle()
 
-    process.crawl(RedditTopThreadsScraper, subreddits=subreddits)
-    process.start()
-
-
-def print_scraping_results() -> None:
-    results_json_path = "./results/items.json"
-    if os.path.isfile(results_json_path) and os.path.getsize(results_json_path) > 0:
-        with open(results_json_path) as file:
-            data = json.load(file)
-            for item in data:
-                pretty_json = json.dumps(item, indent=4)
-                print(pretty_json)
 
 
 if __name__ == "__main__":
-    try:
-        subreddits = str(sys.argv[1]).split("=")[1]
-    except IndexError:
-        raise IndexError("""
-        É necessário enviar pelo menos um subreddit
-        da seguinte forma: `docker-compose run --subreddit="cats;sports"`
-        """)
-    run_spider(subreddits)
-    print_scraping_results()
+    main()

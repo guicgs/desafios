@@ -6,6 +6,6 @@ COPY requirements.txt ./
  
 RUN pip install --upgrade pip --no-cache-dir -r requirements.txt
  
-COPY ./redditscraper .
+COPY ./reddit_telegram_bot .
  
 ENTRYPOINT ["python3", "main.py"]
